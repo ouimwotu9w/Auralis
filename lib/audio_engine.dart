@@ -11,9 +11,12 @@ class AudioEngine {
     await _channel.invokeMethod<void>('stop');
   }
 
-  Future<bool> get isSupported async {
-    return await _channel.invokeMethod<bool>('isSupported') ?? false;
+  Future<Map<String, dynamic>> getMetrics() async {
+    final metrics = await _channel.invokeMapMethod<String, dynamic>('getMetrics');
+    return metrics ?? const {};
   }
 
-  void dispose() {}
+  void dispose() {
+    // The screen stops capture explicitly; native Android also stops on teardown.
+  }
 }
