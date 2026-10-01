@@ -22,7 +22,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-          cache: gradle
 
       - name: Setup Flutter
         uses: flutter-actions/setup-flutter@v4
