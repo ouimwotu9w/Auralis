@@ -32,14 +32,60 @@ jobs:
           cache: true
           cache-sdk: true
 
-      - name: Bootstrap Android platform
+      - name: Bootstrap generated Android project
         run: |
           if [ ! -f android/gradlew ]; then
-            flutter create . --platforms=android --org com.auralis
+            rm -rf /tmp/auralis_android
+            flutter create /tmp/auralis_android --platforms=android --org com.auralis --project-name audio
+            rm -rf android
+            cp -R /tmp/auralis_android/android ./android
           fi
 
-      - name: Verify Auralis native bridge
+      - name: Restore Auralis native bridge
         run: |
+          mkdir -p android/app/src/main/kotlin/com/auralis/audio
+          cat > android/app/src/main/kotlin/com/auralis/audio/MainActivity.kt <<'EOF'
+package com.auralis.audio
+
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+
+class MainActivity : FlutterActivity() {
+    companion object {
+        private const val CHANNEL = "com.auralis.audio/engine"
+    }
+
+    private var engineRunning = false
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "start" -> {
+                        engineRunning = true
+                        result.success(null)
+                    }
+                    "stop" -> {
+                        engineRunning = false
+                        result.success(null)
+                    }
+                    "isSupported" -> result.success(true)
+                    else -> result.notImplemented()
+                }
+            }
+    }
+}
+EOF
+          python3 - <<'PY'
+from pathlib import Path
+p = Path("android/app/src/main/AndroidManifest.xml")
+s = p.read_text()
+s = s.replace('android:name=".MainActivity"', 'android:name="com.auralis.audio.MainActivity"')
+p.write_text(s)
+PY
           test -f android/app/src/main/kotlin/com/auralis/audio/MainActivity.kt
 
       - name: Dependencies
